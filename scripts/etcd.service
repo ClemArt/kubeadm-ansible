@@ -1,0 +1,23 @@
+# /etc/systemd/system/etcd.service
+[Unit]
+Description=etcd
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/opt/etcd/etcd --name ${ETCD_NAME} \
+  --data-dir /var/lib/etcd \
+  --listen-client-urls "http://localhost:2379,http://${HOST_IP}:2379" \
+  --advertise-client-urls "http://${HOST_IP}:2379" \
+  --listen-peer-urls "http://${HOST_IP}:2380" \
+  --initial-cluster "etcd1=http://${PEER1_IP}:2380,etcd2=http://${PEER2_IP}:2380,etcd3=http://${PEER3_IP}:2380" \
+  --initial-advertise-peer-urls "http://${HOST_IP}:2380" \
+  --heartbeat-interval 200 \
+  --election-timeout 5000
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

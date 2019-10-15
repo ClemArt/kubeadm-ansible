@@ -1,0 +1,220 @@
+- hosts: all
+  gather_facts: no
+  any_errors_fatal: yes
+  become: yes
+  tasks:
+    - name: Install prerequisite packages
+      yum:
+        state: present
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - curl
+          - ca-certificates
+          - ntp
+    - name: Enable ntpd
+      systemd:
+        name: ntpd
+        enabled: yes
+        state: started
+    - name: Dactivate firewalld
+      systemd:
+        name: firewalld
+        enabled: false
+        state: stopped
+
+- hosts: node
+  become: yes
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+    - docker
+  tasks:
+    - name: Add Docker repository
+      yum_repository:
+        enabled: yes
+        name: docker-ce
+        baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
+        gpgcheck: no
+        repo_gpgcheck: no
+        description: |
+          Stable Docker repository
+    - name: Install docker
+      yum:
+        state: present
+        name: "{{ packages }}"
+      vars:
+        packages:
+          - docker-ce-19.03.4
+          - docker-ce-cli-19.03.4
+          - containerd.io
+    - name: Create Docker configuration directory
+      file:
+        state: directory
+        path: /etc/docker
+        mode: 755
+    - name: Configure docker
+      template:
+        src: "templates/daemon.json.j2"
+        dest: "/etc/docker/daemon.json"
+        mode: 644
+      notify: "docker - reload"
+    - name: Start docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+  handlers:
+    - name: docker - reload
+      systemd:
+        name: docker
+        state: restarted
+
+- hosts: node
+  become: yes
+  gather_facts: no
+  any_errors_fatal: yes
+  tags:
+    - kubernetes
+  tasks:
+    - name: Install kubernetes repository
+      yum_repository:
+        name: kubernetes
+        # Prevents kubernetes unwanted updates
+        enabled: no
+        baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+        repo_gpgcheck: yes
+        gpgcheck: yes
+        gpgkey:
+          - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+          - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+        description: |
+          Kubernetes repository
+    - name: Install k8s binaries
+      yum:
+        state: present
+        name: "{{ packages }}"
+        enablerepo: kubernetes
+      vars:
+        packages:
+          - kubeadm
+          - kubelet
+    - name: Enable and start kubelet
+      systemd:
+        name: kubelet
+        state: started
+        no_block: yes
+        enabled: yes
+    - name: Enable bridge netfilter kernel module
+      modprobe:
+        state: present
+        name: br_netfilter
+    - name: Enable bridge iptable processing
+      sysctl:
+        name: "{{ item }}"
+        state: present
+        value: "1"
+        sysctl_set: yes
+      loop:
+        - net.bridge.bridge-nf-call-iptables
+        - net.bridge.bridge-nf-call-ip6tables
+    - name: Disable swap
+      command: swapoff -a
+
+- hosts: master
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: yes
+  tags:
+    - kubernetes
+    - kubeadm
+    - k8s-control-plane
+  tasks:
+    - name: Configure firewall
+      iptables:
+        action: insert
+        rule_num: 1
+        chain: INPUT
+        comment: "k8s master input"
+        destination_port: "{{ item }}"
+        jump: ACCEPT
+        protocol: tcp
+        state: present
+      loop:
+        - "6443"
+        - "2379:2380"
+        - "10250:10252"
+    - name: Create kubernetes config folder
+      file:
+        state: directory
+        path: /etc/kubernetes
+        mode: 755
+    - name: Copy kubeadm configuration
+      template:
+        src: "templates/kubeadm-config.yml.j2"
+        dest: "/etc/kubernetes/kubeadm-config.yml"
+        mode: 600
+    - name: Initialize first master
+      run_once: yes
+      block:
+        - name: Run init
+          command: >
+            kubeadm init --config /etc/kubernetes/kubeadm-config.yml
+            --skip-certificate-key-print --skip-token-print
+          args:
+            creates: /etc/kubernetes/admin.conf
+      rescue:
+        - name: Reset node
+          command: >
+            kubeadm reset -f
+
+- hosts: revoked-node
+  become: yes
+  any_errors_fatal: yes
+  tags:
+    - kubernetes
+    - k8s-reset-node
+  tasks:
+    - name: Reset node
+      command: >
+        kubeadm reset -f
+
+- hosts: master
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: yes
+  tags:
+    - kubernetes
+    - k8s-control-plane
+    - k8s-join-master
+  tasks:
+    - name: Generate a join token
+      run_once: yes
+      command: >
+        kubeadm token create --print-join-command --ttl 10m --usages=authentication,signing
+      register: k8s_master_join_command
+    - name: Generate random key
+      run_once: yes
+      delegate_to: localhost
+      shell: >
+        cat /dev/urandom | tr -dc 'A-F0-9' | fold -w 32 | head -n 1
+      register: k8s_certificate_upload_key
+    - name: Upload certificates
+      run_once: yes
+      command: >
+        kubeadm init phase upload-certs --upload-certs
+        --certificate-key {{ k8s_certificate_upload_key.stdout }}
+        --skip-certificate-key-print
+    - name: Join other masters
+      block:
+        - name: Run join command
+          command: >
+            {{ k8s_master_join_command.stdout }}
+            --apiserver-advertise-address {{ hostvars[inventory_hostname]['ansible_' + k8s_apiserver_iface].ipv4.address }}
+            --control-plane --certificate-key {{ k8s_certificate_upload_key.stdout }}
+          args:
+            creates: /etc/kubernetes/admin.conf
+      rescue:
+        - name: Reset node
+          command: >
+            kubeadm reset -f
