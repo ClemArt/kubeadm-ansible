@@ -18,8 +18,8 @@ Creation of a bp cluster based on kubeadm, using Ansible
 
 # Component versions
 
-* docker v19.03
-* kubeadm v1.16
+* docker v19.03.4
+* kubeadm v1.16.2
 * Ansible v2.8.6
 
 # Automated Provisioning
