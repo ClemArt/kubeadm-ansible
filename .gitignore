@@ -2,3 +2,5 @@
 ssl
 admin.conf
 venv
+
+hack/.local*
