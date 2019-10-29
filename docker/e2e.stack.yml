@@ -1,0 +1,35 @@
+version: "2.4"
+services:
+  master1:
+    image: centos:systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - type: tmpfs
+        target: /run
+      - type: tmpfs
+        target: /tmp
+    ports:
+      - "8021:22"
+    privileged: true
+  master2:
+    image: centos:systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - type: tmpfs
+        target: /run
+      - type: tmpfs
+        target: /tmp
+    ports:
+      - "8022:22"
+    privileged: true
+  master3:
+    image: centos:systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - type: tmpfs
+        target: /run
+      - type: tmpfs
+        target: /tmp
+    ports:
+      - "8023:22"
+    privileged: true

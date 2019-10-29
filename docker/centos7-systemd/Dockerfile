@@ -1,6 +1,6 @@
 FROM centos:7
 
-RUN yum install -y openssh-server python2 sudo
+RUN yum install -y openssh-server python2 sudo iproute iptables
 
 RUN systemctl enable sshd
 
