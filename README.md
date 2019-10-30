@@ -1,9 +1,10 @@
 # Kubernetes with kubeadm & Ansible
 Creation of a bp cluster based on kubeadm, using Ansible
 
-# TOC
+# Menu
 - [Kubernetes with kubeadm & Ansible](#kubernetes-with-kubeadm--ansible)
-- [TOC](#toc)
+- [Menu](#menu)
+- [TODO list](#todo-list)
 - [Component versions](#component-versions)
 - [Automated Provisioning](#automated-provisioning)
   - [Ansible VM](#ansible-vm)
@@ -15,6 +16,16 @@ Creation of a bp cluster based on kubeadm, using Ansible
 - [Troubleshoting](#troubleshoting)
   - [Changes to workspace not propagated in VM](#changes-to-workspace-not-propagated-in-vm)
   - [Entreprise proxy](#entreprise-proxy)
+
+# TODO list
+
+* [ ] Join worker nodes
+* [ ] Disable swap on reboot
+* [ ] Use CNI plugin (flannel at first)
+* [ ] Split playbook in smaller parts
+* [ ] Create roles
+* [ ] Add tests...
+* [ ] Use containerd instead of docker (choice by variable) 
 
 # Component versions
 
