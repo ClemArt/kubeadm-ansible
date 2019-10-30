@@ -1,7 +1,7 @@
 - hosts: all
-  gather_facts: no
-  any_errors_fatal: yes
-  become: yes
+  gather_facts: False
+  any_errors_fatal: True
+  become: True
   tasks:
     - name: Install prerequisite packages
       yum:
@@ -15,28 +15,28 @@
     - name: Enable ntpd
       systemd:
         name: ntpd
-        enabled: yes
+        enabled: True
         state: started
     - name: Dactivate firewalld
       systemd:
         name: firewalld
-        enabled: false
+        enabled: False
         state: stopped
 
 - hosts: node
-  become: yes
-  gather_facts: no
-  any_errors_fatal: yes
+  become: True
+  gather_facts: False
+  any_errors_fatal: True
   tags:
     - docker
   tasks:
     - name: Add Docker repository
       yum_repository:
-        enabled: yes
+        enabled: True
         name: docker-ce
         baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
-        gpgcheck: no
-        repo_gpgcheck: no
+        gpgcheck: False
+        repo_gpgcheck: False
         description: |
           Stable Docker repository
     - name: Install docker
@@ -63,7 +63,7 @@
       systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: True
   handlers:
     - name: docker - reload
       systemd:
@@ -71,9 +71,9 @@
         state: restarted
 
 - hosts: node
-  become: yes
-  gather_facts: no
-  any_errors_fatal: yes
+  become: True
+  gather_facts: False
+  any_errors_fatal: True
   tags:
     - kubernetes
   tasks:
@@ -81,10 +81,10 @@
       yum_repository:
         name: kubernetes
         # Prevents kubernetes unwanted updates
-        enabled: no
+        enabled: False
         baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-        repo_gpgcheck: yes
-        gpgcheck: yes
+        repo_gpgcheck: True
+        gpgcheck: True
         gpgkey:
           - https://packages.cloud.google.com/yum/doc/yum-key.gpg
           - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
@@ -103,8 +103,8 @@
       systemd:
         name: kubelet
         state: started
-        no_block: yes
-        enabled: yes
+        no_block: True
+        enabled: True
     - name: Enable bridge netfilter kernel module
       modprobe:
         state: present
@@ -114,7 +114,7 @@
         name: "{{ item }}"
         state: present
         value: "1"
-        sysctl_set: yes
+        sysctl_set: True
       loop:
         - net.bridge.bridge-nf-call-iptables
         - net.bridge.bridge-nf-call-ip6tables
@@ -122,9 +122,9 @@
       command: swapoff -a
 
 - hosts: master
-  become: yes
-  gather_facts: yes
-  any_errors_fatal: yes
+  become: True
+  gather_facts: True
+  any_errors_fatal: True
   tags:
     - kubernetes
     - kubeadm
@@ -155,7 +155,7 @@
         dest: "/etc/kubernetes/kubeadm-config.yml"
         mode: 600
     - name: Initialize first master
-      run_once: yes
+      run_once: True
       block:
         - name: Run init
           command: >
@@ -168,9 +168,9 @@
           command: >
             kubeadm reset -f
 
-- hosts: revoked-node
-  become: yes
-  any_errors_fatal: yes
+- hosts: revoked_node
+  become: True
+  any_errors_fatal: True
   tags:
     - kubernetes
     - k8s-reset-node
@@ -180,27 +180,29 @@
         kubeadm reset -f
 
 - hosts: master
-  become: yes
-  gather_facts: yes
-  any_errors_fatal: yes
+  become: True
+  gather_facts: True
+  any_errors_fatal: True
   tags:
     - kubernetes
     - k8s-control-plane
     - k8s-join-master
   tasks:
     - name: Generate a join token
-      run_once: yes
+      run_once: True
       command: >
-        kubeadm token create --print-join-command --ttl 10m --usages=authentication,signing
+        kubeadm token create --kubeconfig /etc/kubernetes/admin.conf --print-join-command --ttl {{ k8s_join_token_ttl }} --usages=authentication,signing
       register: k8s_master_join_command
+      no_log: True
     - name: Generate random key
-      run_once: yes
+      run_once: True
       delegate_to: localhost
       shell: >
         cat /dev/urandom | tr -dc 'A-F0-9' | fold -w 32 | head -n 1
       register: k8s_certificate_upload_key
+      no_log: True
     - name: Upload certificates
-      run_once: yes
+      run_once: True
       command: >
         kubeadm init phase upload-certs --upload-certs
         --certificate-key {{ k8s_certificate_upload_key.stdout }}

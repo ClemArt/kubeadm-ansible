@@ -1,20 +1,19 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-IP_PREFIX = "192.168.10.1"
-IGNORE_PFERR = "Swap,NumCPU"
-
 NB_MASTER = 3
 NB_WORKER = 0
 
 nbMachines = NB_MASTER + NB_WORKER
+machinesIPs = (0..nbMachines).collect {|i| "172.16.10.#{100 + i}"}
+machinesIPsString = machinesIPs.join(",")
 
 Vagrant.configure("2") do |config|
 
   if Vagrant.has_plugin?("vagrant-proxyconf")
     config.proxy.http     = "#{ENV['HTTP_PROXY']}"
     config.proxy.https    = "#{ENV['HTTP_PROXY']}"
-    config.proxy.no_proxy = "#{ENV['NO_PROXY']},10.96.0.0/12,10.80.0.0/12,#{IP_PREFIX}1,#{IP_PREFIX}2,#{IP_PREFIX}3"
+    config.proxy.no_proxy = "#{ENV['NO_PROXY']},#{machinesIPsString}"
   end
 
   config.hostmanager.enabled = true
@@ -29,10 +28,6 @@ Vagrant.configure("2") do |config|
     vb.cpus = 2
   end
 
-  config.vm.provision "upgrade", type: "shell", inline: <<-EOF
-    yum upgrade -y
-  EOF
-
   if Vagrant.has_plugin?("vagrant-proxyconf") && Dir.exists?("./ssl")
     config.vm.provision "custom_ssl", type: "shell", inline: <<-EOF
       cp /vagrant/ssl/*.pem /etc/pki/ca-trust/source/anchors/
@@ -40,9 +35,14 @@ Vagrant.configure("2") do |config|
     EOF
   end
 
+  config.vm.provision "upgrade", type: "shell", inline: <<-EOF
+    yum upgrade -y
+  EOF
+
   (1..nbMachines).each do |i|
     config.vm.define "k8s-#{i}" do |v|
       v.vm.hostname = "k8s-#{i}"
+      v.vm.synced_folder ".", "/vagrant", mount_options: ["fmode=600", "dmode=755"]
 
       ip = "172.16.10.#{100 + i}"
       v.vm.network "private_network", ip: ip
@@ -57,6 +57,7 @@ Vagrant.configure("2") do |config|
 
     v.vm.provision "python", type: "shell", inline: <<-EOF
       yum install -y python3 python3-pip
+      which pip || ln -s $(which pip3) /usr/bin/pip
     EOF
 
     v.vm.provision "ansible_local" do |ansible|
