@@ -1,4 +1,4 @@
 .vagrant
-ssl
+custom_ssl
 admin.conf
 venv
