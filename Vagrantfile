@@ -28,9 +28,9 @@ Vagrant.configure("2") do |config|
     vb.cpus = 2
   end
 
-  if Vagrant.has_plugin?("vagrant-proxyconf") && Dir.exists?("./ssl")
+  if Vagrant.has_plugin?("vagrant-proxyconf") && Dir.exists?("./custom_ssl")
     config.vm.provision "custom_ssl", type: "shell", inline: <<-EOF
-      cp /vagrant/ssl/*.pem /etc/pki/ca-trust/source/anchors/
+      cp /vagrant/custom_ssl/*.pem /etc/pki/ca-trust/source/anchors/
       update-ca-trust
     EOF
   end

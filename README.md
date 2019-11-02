@@ -51,11 +51,11 @@ Simply run `vagrant up` and watch Ansible do the rest
 
     vagrant provision --provision-with "provider1,provider2,..."
 
-Each provider is a shell script with a specific goal (in order of provisioning) :
+Each provider is a script with a specific goal (in order of provisioning) :
 
 | name          | actions                                                                                                                        |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| custom_ssl    | Copy the content of the `ssl` folder in working directory to the trusted CA sources of centos, then update the trust CA bundle |
+| custom_ssl    | Copy the content of the `custom_ssl` folder in working directory to the trusted CA sources of centos, then update the trust CA bundle |
 | python        | Provision python3 and pip3 in the ansible vm                                                                                   |
 | ansible_local | Run ansible-playbook with the ansible VM to provision the cluster                                                              |
 
@@ -84,4 +84,4 @@ You can run `vagrant rsync` to resync folders.
         HTTPS_PROXY = http://myproxy.org:port
         NO_PROXY = localhost,127.0.0.1
 
-If your proxy is of type MITM, you should create a `ssl` folder next to the `Vagrantfile` and put the proxy's root CA in here. Then you can use the `custom_ssl` provisioner to trust these new CA.
+If your proxy is of type MITM, you should create a `custom_ssl` folder next to the `Vagrantfile` and put the proxy's root CA in here. Make sure the VMs have the current workspace shared as the `/vagrant` folder and reprovision them to upload and trust the CA. See `custom_ssl` provisioner above.
