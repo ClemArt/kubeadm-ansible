@@ -298,9 +298,14 @@
         src: "templates/kube-flannel.yml.j2"
         dest: "/etc/kubernetes/addons/kube-flannel.yml"
         mode: "0600"
+    - name: Check existing flannel configuration
+      run_once: True
+      command: >
+        kubectl --kubeconfig /etc/kubernetes/admin.conf
+        -n kube-system get -l app=flannel daemonset
+      register: k8s_flannel_daemonset
     - name: Apply flannel configuration
       run_once: True
       command: >
         kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /etc/kubernetes/addons/kube-flannel.yml
-      args:
-        creates: /run/flannel/subnet.env
+      when: "'No resources found' in k8s_flannel_daemonset.stderr"
