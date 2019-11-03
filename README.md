@@ -21,7 +21,9 @@ Creation of a bp cluster based on kubeadm, using Ansible
 
 * [ ] Join worker nodes
 * [ ] Disable swap on reboot
-* [ ] Use CNI plugin (flannel at first)
+* [x] Use CNI plugin (flannel at first)
+* [ ] Add calico for network policies
+* [ ] Use other cni plugin
 * [ ] Split playbook in smaller parts
 * [ ] Create roles
 * [ ] Add tests...
