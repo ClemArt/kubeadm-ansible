@@ -1,8 +1,10 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-NB_MASTER = 3
-NB_WORKER = 0
+# Configurations
+NB_MASTER = 1
+NB_WORKER = 2
+ANSIBLE_INVENTORY = "local"
 
 nbMachines = NB_MASTER + NB_WORKER
 machinesIPs = (0..nbMachines).collect {|i| "172.16.10.#{100 + i}"}
@@ -66,7 +68,12 @@ Vagrant.configure("2") do |config|
       ansible.pip_args = "-r /vagrant/requirements.txt"
       ansible.playbook = "playbook.yml"
       ansible.verbose = true
-      ansible.inventory_path = "inventory/sample/hosts.ini"
+      ansible.inventory_path = "inventory/#{ANSIBLE_INVENTORY}/hosts.ini"
+    end
+
+    v.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 4
     end
   end
 end

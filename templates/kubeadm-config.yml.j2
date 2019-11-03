@@ -23,14 +23,3 @@ bootstrapTokens:
 localAPIEndpoint:
   advertiseAddress: {{ hostvars[inventory_hostname]['ansible_' + k8s_apiserver_iface].ipv4.address }}
   bindPort: 6443
----
-apiVersion: kubeadm.k8s.io/v1beta2
-kind: JoinConfiguration
-discovery:
-  bootstrapToken:
-    apiServerEndpoint: {{ k8s_apiserver_advertised_endpoint }}:6443
-  timeout: 5m0s
-controlPlane:
-  localAPIEndpoint:
-    advertiseAddress: {{ hostvars[inventory_hostname]['ansible_' + k8s_apiserver_iface].ipv4.address }}
-    bindPort: 6443

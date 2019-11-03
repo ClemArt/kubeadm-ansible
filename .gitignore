@@ -4,7 +4,9 @@ custom_ssl
 
 # Kubernetes
 admin.conf
-config
 
 # Pip virtualenv
 venv
+
+# Local configurations
+inventory/local

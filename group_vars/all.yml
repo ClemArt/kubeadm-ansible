@@ -1,0 +1,5 @@
+k8s_cluster_name: 'vagrant_k8s'
+
+# Should the ansible runner download the admin.conf
+download_k8s_admin_conf: True
+download_k8s_admin_conf_dest: "/vagrant/admin.conf"

@@ -23,7 +23,7 @@
         enabled: False
         state: stopped
 
-- hosts: node
+- hosts: nodes
   become: True
   gather_facts: False
   any_errors_fatal: True
@@ -70,7 +70,7 @@
         name: docker
         state: restarted
 
-- hosts: node
+- hosts: nodes
   become: True
   gather_facts: False
   any_errors_fatal: True
@@ -120,8 +120,13 @@
         - net.bridge.bridge-nf-call-ip6tables
     - name: Disable swap
       command: swapoff -a
+    - name: Disable swap on reboots
+      replace:
+        path: /etc/fstab
+        regexp: "^([^#].*\\sswap\\s+sw(?:ap)?\\s+.*)$"
+        replace: "# \\1"
 
-- hosts: master
+- hosts: masters
   become: True
   gather_facts: True
   any_errors_fatal: True
@@ -133,7 +138,7 @@
     - name: Configure firewall
       iptables:
         action: insert
-        rule_num: 1
+        rule_num: "1"
         chain: INPUT
         comment: "k8s master input"
         destination_port: "{{ item }}"
@@ -163,12 +168,20 @@
             --skip-certificate-key-print --skip-token-print
           args:
             creates: /etc/kubernetes/admin.conf
+        - name: Download admin.conf file locally
+          run_once: True
+          fetch:
+            src: /etc/kubernetes/admin.conf
+            flat: True
+            dest: "{{ download_k8s_admin_conf_dest }}"
+          when: download_k8s_admin_conf == True
+          ignore_errors: True
       rescue:
         - name: Reset node
           command: >
             kubeadm reset -f
 
-- hosts: revoked_node
+- hosts: retired_nodes
   become: True
   any_errors_fatal: True
   tags:
@@ -179,7 +192,33 @@
       command: >
         kubeadm reset -f
 
-- hosts: master
+- hosts: masters[0]
+  become: True
+  gather_facts: False
+  any_errors_fatal: True
+  tags:
+    - kubernetes
+    - k8s-join-worker
+    - k8s-worker
+    - k8s-join-master
+    - k8s-control-plane
+  tasks:
+    - name: Generate a join token
+      command: >
+        kubeadm token create --kubeconfig /etc/kubernetes/admin.conf --print-join-command --ttl {{ k8s_join_token_ttl }} --usages=authentication,signing
+      register: k8s_kubeadm_join_command
+    - name: Generate random key
+      shell: >
+        cat /dev/urandom | tr -dc 'A-F0-9' | fold -w 32 | head -n 1
+      register: k8s_certificate_upload_key
+    - name: Upload certificates
+      run_once: True
+      command: >
+        kubeadm init phase upload-certs --upload-certs
+        --certificate-key {{ k8s_certificate_upload_key.stdout }}
+        --skip-certificate-key-print
+
+- hosts: masters
   become: True
   gather_facts: True
   any_errors_fatal: True
@@ -188,32 +227,13 @@
     - k8s-control-plane
     - k8s-join-master
   tasks:
-    - name: Generate a join token
-      run_once: True
-      command: >
-        kubeadm token create --kubeconfig /etc/kubernetes/admin.conf --print-join-command --ttl {{ k8s_join_token_ttl }} --usages=authentication,signing
-      register: k8s_master_join_command
-      no_log: True
-    - name: Generate random key
-      run_once: True
-      delegate_to: localhost
-      shell: >
-        cat /dev/urandom | tr -dc 'A-F0-9' | fold -w 32 | head -n 1
-      register: k8s_certificate_upload_key
-      no_log: True
-    - name: Upload certificates
-      run_once: True
-      command: >
-        kubeadm init phase upload-certs --upload-certs
-        --certificate-key {{ k8s_certificate_upload_key.stdout }}
-        --skip-certificate-key-print
     - name: Join other masters
       block:
         - name: Run join command
           command: >
-            {{ k8s_master_join_command.stdout }}
+            {{ hostvars[groups['masters'][0]]['k8s_kubeadm_join_command'].stdout }}
             --apiserver-advertise-address {{ hostvars[inventory_hostname]['ansible_' + k8s_apiserver_iface].ipv4.address }}
-            --control-plane --certificate-key {{ k8s_certificate_upload_key.stdout }}
+            --control-plane --certificate-key {{ hostvars[groups['masters'][0]]['k8s_certificate_upload_key'].stdout }}
           args:
             creates: /etc/kubernetes/admin.conf
       rescue:
@@ -221,7 +241,45 @@
           command: >
             kubeadm reset -f
 
-- hosts: master
+- hosts: workers
+  become: True
+  gather_facts: False
+  any_errors_fatal: True
+  tags:
+    - kubernetes
+    - k8s-join-worker
+    - k8s-worker
+  tasks:
+    - name: Gather masters[0] facts
+      setup:
+      delegate_to: "{{ groups['masters'][0] }}"
+    - name: Configure firewall
+      iptables:
+        action: insert
+        rule_num: "1"
+        chain: INPUT
+        comment: "k8s node input"
+        destination_port: "{{ item }}"
+        jump: ACCEPT
+        protocol: tcp
+        state: present
+      loop:
+        - "10250"
+        - "30000:32767"
+    - name: Join workers
+      block:
+        - name: Run join command
+          command: >
+            {{ hostvars[groups['masters'][0]]['k8s_kubeadm_join_command'].stdout }} 
+            --certificate-key {{ hostvars[groups['masters'][0]]['k8s_certificate_upload_key'].stdout }}
+          args:
+            creates: /etc/kubernetes/pki/ca.crt
+      rescue:
+        - name: Reset node
+          command: >
+            kubeadm reset -f
+
+- hosts: masters
   become: True
   gather_facts: False
   any_errors_fatal: True

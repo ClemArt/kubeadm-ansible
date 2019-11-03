@@ -8,6 +8,4 @@ k8s_apiserver_all_public_endpoints:
   - "172.16.10.102"
   - "172.16.10.103"
 
-k8s_pod_network_cidr: "10.244.0.0/16"
-
 k8s_flannel_backend_type: vxlan
