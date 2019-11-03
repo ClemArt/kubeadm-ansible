@@ -2,7 +2,12 @@
 k8s_apiserver_iface: eth1
 
 k8s_apiserver_all_public_endpoints:
+  - "{{ k8s_apiserver_advertised_endpoint }}"
   - apiserver.k8s.local
   - "172.16.10.101"
   - "172.16.10.102"
   - "172.16.10.103"
+
+k8s_pod_network_cidr: "10.244.0.0/16"
+
+k8s_flannel_backend_type: vxlan

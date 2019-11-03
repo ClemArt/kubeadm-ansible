@@ -52,12 +52,12 @@
       file:
         state: directory
         path: /etc/docker
-        mode: 755
+        mode: "0755"
     - name: Configure docker
       template:
         src: "templates/daemon.json.j2"
         dest: "/etc/docker/daemon.json"
-        mode: 644
+        mode: "0644"
       notify: "docker - reload"
     - name: Start docker
       systemd:
@@ -148,12 +148,12 @@
       file:
         state: directory
         path: /etc/kubernetes
-        mode: 755
+        mode: "0755"
     - name: Copy kubeadm configuration
       template:
         src: "templates/kubeadm-config.yml.j2"
         dest: "/etc/kubernetes/kubeadm-config.yml"
-        mode: 600
+        mode: "0600"
     - name: Initialize first master
       run_once: True
       block:
@@ -220,3 +220,29 @@
         - name: Reset node
           command: >
             kubeadm reset -f
+
+- hosts: master
+  become: True
+  gather_facts: False
+  any_errors_fatal: True
+  tags:
+    - kubernetes
+    - flannel
+    - k8s-cni-plugin
+  tasks:
+    - name: Create addons directory
+      file:
+        state: directory
+        path: "/etc/kubernetes/addons"
+        mode: "0755"
+    - name: Upload flannel descriptor
+      template:
+        src: "templates/kube-flannel.yml.j2"
+        dest: "/etc/kubernetes/addons/kube-flannel.yml"
+        mode: "0600"
+    - name: Apply flannel configuration
+      run_once: True
+      command: >
+        kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /etc/kubernetes/addons/kube-flannel.yml
+      args:
+        creates: /run/flannel/subnet.env

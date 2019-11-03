@@ -10,6 +10,8 @@ dns:
 certificatesDir: /etc/kubernetes/pki
 imageRepository: k8s.gcr.io
 clusterName: {{ k8s_cluster_name }}
+networking:
+  podSubnet: "{{ k8s_pod_network_cidr }}"
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
