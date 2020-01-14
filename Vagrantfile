@@ -6,8 +6,9 @@ NB_MASTER = 1
 NB_WORKER = 2
 ANSIBLE_INVENTORY = "local"
 
+ipPrefix = "172.16.10"
 nbMachines = NB_MASTER + NB_WORKER
-machinesIPs = (0..nbMachines).collect {|i| "172.16.10.#{100 + i}"}
+machinesIPs = (0..nbMachines).collect {|i| "#{ipPrefix}.#{100 + i}"}
 machinesIPsString = machinesIPs.join(",")
 
 Vagrant.configure("2") do |config|
@@ -32,7 +33,7 @@ Vagrant.configure("2") do |config|
 
   if Vagrant.has_plugin?("vagrant-proxyconf") && Dir.exists?("./custom_ssl")
     config.vm.provision "custom_ssl", type: "shell", inline: <<-EOF
-      cp /vagrant/custom_ssl/*.pem /etc/pki/ca-trust/source/anchors/
+      cp /vagrant/custom_ssl/*.crt /etc/pki/ca-trust/source/anchors/
       update-ca-trust
     EOF
   end
@@ -46,14 +47,15 @@ Vagrant.configure("2") do |config|
       v.vm.hostname = "k8s-#{i}"
       v.vm.synced_folder ".", "/vagrant", mount_options: ["fmode=600", "dmode=755"]
 
-      ip = "172.16.10.#{100 + i}"
+      ip = "#{ipPrefix}.#{100 + i}"
       v.vm.network "private_network", ip: ip
     end
   end
 
   config.vm.define "ansible" do |v|
+
     v.vm.hostname = "ansible"
-    v.vm.network "private_network", ip: "172.16.10.100"
+    v.vm.network "private_network", ip: "#{ipPrefix}.100"
 
     v.vm.synced_folder ".", "/vagrant", mount_options: ["fmode=600", "dmode=755"]
 
