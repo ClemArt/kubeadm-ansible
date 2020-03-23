@@ -1,6 +1,6 @@
 # Vagrant
 .vagrant
-custom_ssl
+ubuntu*
 
 # Kubernetes
 admin.conf

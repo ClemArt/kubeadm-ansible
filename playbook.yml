@@ -4,7 +4,7 @@
   become: True
   tasks:
     - name: Install prerequisite packages
-      yum:
+      apt:
         state: present
         name: "{{ packages }}"
       vars:
